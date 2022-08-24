@@ -71,7 +71,7 @@ model:
     num_layers: 2
 
   data:
-    train_ds: [/data/dialogsum.train_split/train.jsonl,]
+    train_ds: [/data/train.jsonl,]
     validation_ds: [/data/dev.jsonl,]
     add_eos: True
     shuffle: True
