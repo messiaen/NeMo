@@ -50,8 +50,8 @@ model:
 
   restore_path: null # Path to an existing p-tuned/prompt tuned .nemo model you wish to add new tasks to or run inference with
   language_model_path: /checkpoints/megatron_gpt_345m.nemo # Path to the GPT language model .nemo file, always required
-  existing_tasks: ['dialog_summary'] # List of tasks the model has already been p-tuned/prompt-tuned for, needed when a restore path is given
-  new_tasks: [] # List of new tasknames to be prompt-tuned
+  existing_tasks: [] # List of tasks the model has already been p-tuned/prompt-tuned for, needed when a restore path is given
+  new_tasks: ['dialog_summary'] # List of new tasknames to be prompt-tuned
 
   task_templates: # Add more/replace tasks as needed, these are just examples
   - taskname: "dialog_summary" # The task name
