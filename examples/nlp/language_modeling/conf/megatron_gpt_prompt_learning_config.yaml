@@ -71,8 +71,8 @@ model:
     num_layers: 2
 
   data:
-    train_ds: [data/rte_train.jsonl,]
-    validation_ds: [data/rte_val.jsonl,]
+    train_ds: [/media/apeganov/DATA/prompt_learning/dialogsum.train_split/train.jsonl,]
+    validation_ds: [/media/apeganov/DATA/prompt_learning/dialogsum.train_split/dev.jsonl,]
     add_eos: True
     shuffle: True
     num_workers: 8
