@@ -55,7 +55,7 @@ model:
 
   task_templates: # Add more/replace tasks as needed, these are just examples
   - taskname: "dialog_summary" # The task name
-    prompt_template: "<|VIRTUAL_PROMPT_0|> Passage: {dialog} <|VIRTUAL_PROMPT_1|> \nSummary: {summary}" # Prompt template for task, specify virtual prompt positions with <|VIRTUAL_PROMPT_#|>
+    prompt_template: "<|VIRTUAL_PROMPT_0|> Passage: {dialogue} <|VIRTUAL_PROMPT_1|> \nSummary: {summary}" # Prompt template for task, specify virtual prompt positions with <|VIRTUAL_PROMPT_#|>
     total_virtual_tokens: 2 # Sum of tokens in virtual_token_splits must add to this number. Can differ between new and existing tasks, but must match across all new tasks being tuned at the same time.
     virtual_token_splits: [1, 1] # number of virtual tokens to be inserted at each VIRTUAL PROMPT location, must add to total_virtual_tokens
     truncate_field: "passage" # The {field} in the prompt template whose text will be truncated if the input is too long, if null, inputs that are too long will just be skipped.

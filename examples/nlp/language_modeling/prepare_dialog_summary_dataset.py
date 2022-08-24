@@ -19,7 +19,7 @@ def main() -> None:
     args = parse_args()
     with args.input.open() as in_f, args.output.open('w') as out_f:
         for line in in_f:
-            d = {k: v for k, v in json.loads(line) if k in args.keys_to_keep}
+            d = {k: v for k, v in json.loads(line).items() if k in args.keys_to_keep}
             d['taskname'] = args.task_name
             new_line = json.dumps(d)
             out_f.write(new_line + '\n')
