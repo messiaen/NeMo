@@ -22,5 +22,5 @@ tensor_model_parallel_size: 1
 pipeline_model_parallel_size: 1
 gpt_model_file: /checkpoints/megatron_gpt_345m.nemo  # GPT nemo file path
 virtual_prompt_model_file: dialog_summary.nemo # path to a MegatronGPTPromptLearningModel model if you want to use soft prompts
-data_paths: [/data/dev.jsonl,] # paths to .jsonl files you want to perform inference on
+data_paths: [/data/dev_input.jsonl,] # paths to .jsonl files you want to perform inference on
  
