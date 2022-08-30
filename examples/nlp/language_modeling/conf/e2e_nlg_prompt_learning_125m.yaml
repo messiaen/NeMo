@@ -25,7 +25,7 @@ exp_manager:
   create_wandb_logger: True
   wandb_logger_kwargs:
     project: prompt-learning
-    name: dialog_summary_debug_125M
+    name: e2e_NLG_debug_125M
   resume_if_exists: True
   resume_ignore_no_checkpoint: True
   create_checkpoint_callback: True
@@ -40,7 +40,7 @@ exp_manager:
 
 model:
   seed: 1234
-  nemo_path: dialog_summary_125m.nemo # .nemo filename/absolute path to where the virtual prompt model parameters will be saved
+  nemo_path: e2e_nlg_125m.nemo # .nemo filename/absolute path to where the virtual prompt model parameters will be saved
   virtual_prompt_style: 'p-tuning' # one of 'prompt-tuning', 'p-tuning', or 'inference'
   encoder_seq_length: 2048 
   tensor_model_parallel_size: 1 # intra-layer model parallelism
@@ -51,11 +51,11 @@ model:
   restore_path: null # Path to an existing p-tuned/prompt tuned .nemo model you wish to add new tasks to or run inference with
   language_model_path: /checkpoints/megatron_125M_gpt.nemo # Path to the GPT language model .nemo file, always required
   existing_tasks: [] # List of tasks the model has already been p-tuned/prompt-tuned for, needed when a restore path is given
-  new_tasks: ['dialog_summary'] # List of new tasknames to be prompt-tuned
+  new_tasks: ['e2e_nlg'] # List of new tasknames to be prompt-tuned
 
   task_templates: # Add more/replace tasks as needed, these are just examples
   - taskname: "dialog_summary" # The task name
-    prompt_template: "<|VIRTUAL_PROMPT_0|> Dialog: {dialogue} <|VIRTUAL_PROMPT_1|> \nSummary: {summary}" # Prompt template for task, specify virtual prompt positions with <|VIRTUAL_PROMPT_#|>
+    prompt_template: "<|VIRTUAL_PROMPT_0|> Meaning representation: {meaning_representation} <|VIRTUAL_PROMPT_1|> \nHuman reference: {human_reference}" # Prompt template for task, specify virtual prompt positions with <|VIRTUAL_PROMPT_#|>
     total_virtual_tokens: 2 # Sum of tokens in virtual_token_splits must add to this number. Can differ between new and existing tasks, but must match across all new tasks being tuned at the same time.
     virtual_token_splits: [1, 1] # number of virtual tokens to be inserted at each VIRTUAL PROMPT location, must add to total_virtual_tokens
     truncate_field: "passage" # The {field} in the prompt template whose text will be truncated if the input is too long, if null, inputs that are too long will just be skipped.
