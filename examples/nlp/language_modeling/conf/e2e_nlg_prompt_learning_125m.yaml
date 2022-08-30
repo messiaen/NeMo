@@ -1,4 +1,4 @@
-name: megatron_virtual_prompt_gpt_125M
+name: megatron_virtual_prompt_e2e_nlg_gpt_125M
 
 trainer:
   devices: 1
