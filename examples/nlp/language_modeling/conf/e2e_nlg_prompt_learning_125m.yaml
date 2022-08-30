@@ -54,7 +54,7 @@ model:
   new_tasks: ['e2e_nlg'] # List of new tasknames to be prompt-tuned
 
   task_templates: # Add more/replace tasks as needed, these are just examples
-  - taskname: "dialog_summary" # The task name
+  - taskname: "e2e_nlg" # The task name
     prompt_template: "<|VIRTUAL_PROMPT_0|> Meaning representation: {meaning_representation} <|VIRTUAL_PROMPT_1|> \nHuman reference: {human_reference}" # Prompt template for task, specify virtual prompt positions with <|VIRTUAL_PROMPT_#|>
     total_virtual_tokens: 2 # Sum of tokens in virtual_token_splits must add to this number. Can differ between new and existing tasks, but must match across all new tasks being tuned at the same time.
     virtual_token_splits: [1, 1] # number of virtual tokens to be inserted at each VIRTUAL PROMPT location, must add to total_virtual_tokens
