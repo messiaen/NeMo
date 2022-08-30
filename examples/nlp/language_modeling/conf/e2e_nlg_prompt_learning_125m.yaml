@@ -58,9 +58,9 @@ model:
     prompt_template: "<|VIRTUAL_PROMPT_0|> Meaning representation: {meaning_representation} <|VIRTUAL_PROMPT_1|> \nHuman reference: {human_reference}" # Prompt template for task, specify virtual prompt positions with <|VIRTUAL_PROMPT_#|>
     total_virtual_tokens: 2 # Sum of tokens in virtual_token_splits must add to this number. Can differ between new and existing tasks, but must match across all new tasks being tuned at the same time.
     virtual_token_splits: [1, 1] # number of virtual tokens to be inserted at each VIRTUAL PROMPT location, must add to total_virtual_tokens
-    truncate_field: "passage" # The {field} in the prompt template whose text will be truncated if the input is too long, if null, inputs that are too long will just be skipped.
+    truncate_field: "meaning_representation" # The {field} in the prompt template whose text will be truncated if the input is too long, if null, inputs that are too long will just be skipped.
     answer_only_loss: True 
-    answer_field: "summary"
+    answer_field: "human_reference"
 
   prompt_tuning: # Prompt tunin specific params
     new_prompt_init_methods: ['text'] # List of 'text' or 'random', should correspond to tasks listed in new tasks
