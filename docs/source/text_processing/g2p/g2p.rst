@@ -4,28 +4,26 @@ Grapheme-to-Phoneme Models
 ==========================
 
 Grapheme-to-phoneme conversion (G2P) is the task of transducing graphemes (i.e., orthographic symbols) to phonemes (i.e., units of the sound system of a language).
-For example, for `International_Phonetic_Alphabet (IPA) <https://en.wikipedia.org/wiki/International_Phonetic_Alphabet>`__ ``Swifts, flushed from chimneys … → ˈswɪfts, ˈfɫəʃt ˈfɹəm ˈtʃɪmniz …``.
+For example, for `International_Phonetic_Alphabet (IPA): <https://en.wikipedia.org/wiki/International_Phonetic_Alphabet>`__ ``"Swifts, flushed from chimneys …" → "ˈswɪfts, ˈfɫəʃt ˈfɹəm ˈtʃɪmniz …"``.
 
 Modern text-to-speech (TTS) models can learn pronunciations from raw text input and its corresponding audio data,
 but by relying on grapheme input during training, such models fail to provide a reliable way of correcting wrong pronunciations. As a result, many TTS systems use phonetic input
 during training to directly access and correct pronunciations at inference time. G2P systems allow users to enforce the desired pronunciation by providing a phonetic transcript of the input.
+
 G2P models convert out-of-vocabulary words (OOV), e.g. proper names and loaner words, as well as heteronyms in their phonetic form to improve the quality of the syntesized text.
-Heteronyms represent words that have the same spelling but different pronunciations, e.g., “read” in “I will read the book.” vs. “She read her project last week.”  A single model that can handle OOVs and heteronyms and replace dictionary lookups can significantly simplify and improve the quality of synthesized speech in
+
+*Heteronyms* represent words that have the same spelling but different pronunciations, e.g., “read” in “I will read the book.” vs. “She read her project last week.”  A single model that can handle OOVs and heteronyms and replace dictionary lookups can significantly simplify and improve the quality of synthesized speech in
 
 We support the following G2P models:
-* **ByT5 G2P** a text-to-text model that is based on ByT5 :cite:`g2p-xue2021byt5` neural network model that was originally \
-proposed in :cite:`g2p-vrezavckova2021t5g2p` and :cite:`g2p-zhu2022byt5`.
-* **G2P-Conformer** CTC model -  uses a Conformer encoder :cite:`g2p-gulati2020conformer` followed by a linear decoder; the model is trained with CTC-loss.
 
-The models can be trained using words or sentences as input. If trained with sentence-level input, the model can handle out-of-vocabulary (OOV) and heteronyms along with unambiguous words in a single pass.
+* *ByT5 G2P* a text-to-text model that is based on ByT5 :cite:`g2p-xue2021byt5` neural network model that was originally \
+proposed in :cite:`g2p-vrezavckova2021t5g2p` and :cite:`g2p-zhu2022byt5`.
+* *G2P-Conformer* CTC model -  uses a Conformer encoder :cite:`g2p-gulati2020conformer` followed by a linear decoder; the model is trained with CTC-loss.
+
+The models can be trained using words or sentences as input.
+If trained with sentence-level input, the models can handle out-of-vocabulary (OOV) and heteronyms along with unambiguous words in a single pass.
 See :ref:`Sentence-level Dataset Preparation Pipeline <sentence_level_dataset_pipeline>` on how to label data for G2P model training.
 
-
-
-
-
-
-https://github.com/NVIDIA/NeMo/blob/main/examples/text_processing/g2p/g2p_train_and_evaluate.py
 
 Model Training, Evaluation and Inference
 ----------------------------------------
@@ -40,6 +38,7 @@ Each line of the manifest should be in the following format:
   {"text_graphemes": "Swifts, flushed from chimneys.", "text": "ˈswɪfts, ˈfɫəʃt ˈfɹəm ˈtʃɪmniz."}
 
 Here:
+
 ``text`` - name of the field in manifest_filepath for ground truth phonemes
 ``text_graphemes`` - name of the field in manifest_filepath for input grapheme text
 
@@ -114,10 +113,7 @@ Here is the overall overview of the Data labeling pipeline for sentence-level G2
     .. image:: images/data_labeling_pipeline.png
         :align: center
         :alt: Data labeling pipeline for sentence-level G2P model training
-        :scale: 50%
-
-
-
+        :scale: 70%
 
 
 
@@ -180,7 +176,7 @@ Note, if the input manifest contains target "word_id", evaluation will be also p
 
 
 Requirements
-^^^^^^^^^^^^
+------------
 
 G2P requires NeMo NLP and ASR collections installed. See, `Installation instructions <https://github.com/NVIDIA/NeMo/blob/main/docs/source/starthere/intro.rst#installation>`__ for more details.
 
