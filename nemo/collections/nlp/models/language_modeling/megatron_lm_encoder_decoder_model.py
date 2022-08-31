@@ -883,10 +883,10 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
             consumed_samples = self.compute_consumed_samples(0)
             self._train_dl = self.build_pretraining_data_loader(self._train_ds, consumed_samples)
 
-    def on_pretrain_routine_start(self) -> None:
+    def on_fit_start(self) -> None:
         # keep a copy of init_global_step
         self.init_global_step = self.trainer.global_step
-        return super().on_pretrain_routine_start()
+        return super().on_fit_start()
 
     def setup_validation_data(self, cfg):
         if hasattr(self, '_validation_ds'):

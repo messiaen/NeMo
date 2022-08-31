@@ -21,7 +21,6 @@ from nemo.core.neural_types import ClassificationTarget, LogprobsType, LossType,
 from nemo.utils.decorators import experimental
 
 
-@experimental
 class NLLLoss(torch_NLLLoss, Serialization, Typing):
     """ Class representing a simple NLL loss. """
 
