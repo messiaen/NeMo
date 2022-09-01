@@ -66,9 +66,13 @@ def get_default_length_params():
     return length_params
 
 
-def megatron_gpt_generate(model, inputs, tokenizer, length_params, sampling_params, task_ids=None):
+def megatron_gpt_generate(
+    model, inputs, tokenizer, length_params, sampling_params, task_ids=None, batch_size: int = 128
+):
     # reproduce the old compute_prob method
     # a very special case
+    num_inputs = len(inputs) if isinstance(inputs, list) else len(inputs[0])
+    num_batches = num_inputs // batch_size + (num_inputs % batch_size > 0)
     if sampling_params['compute_logprob']:
         # need to overwrite some configuration, make it immutable
         sampling_params = sampling_params.copy()
@@ -77,29 +81,15 @@ def megatron_gpt_generate(model, inputs, tokenizer, length_params, sampling_para
         sampling_params['all_probs'] = True
         sampling_params["add_BOS"] = False
         sampling_params['greedy'] = True
-        response = generate(
-            model,
-            inputs=inputs,
-            task_ids=task_ids,
-            tokens_to_generate=length_params['max_length'],
-            all_probs=sampling_params['all_probs'],
-            temperature=sampling_params['temperature'],
-            add_BOS=sampling_params['add_BOS'],
-            top_k=sampling_params['top_k'],
-            top_p=sampling_params['top_p'],
-            greedy=sampling_params['use_greedy'],
-            repetition_penalty=sampling_params['repetition_penalty'],
-            min_tokens_to_generate=length_params['min_length'],
-        )
-        compute_prob_response = get_computeprob_response(tokenizer, response, inputs)
-        return compute_prob_response
-
-    if isinstance(inputs, (list, tuple)):
-        if isinstance(inputs[0], (str, torch.Tensor)):
-            output = generate(
+        response = {}
+        for batch_i in range(num_batches):
+            sl = slice(batch_i * batch_size, (batch_i + 1) * batch_size)
+            batch_inputs = tuple(elem[sl] for elem in inputs) if isinstance(inputs, tuple) else inputs[sl]
+            batch_task_ids = task_ids[sl]
+            batch_response = generate(
                 model,
-                inputs=inputs,
-                task_ids=task_ids,
+                inputs=batch_inputs,
+                task_ids=batch_task_ids,
                 tokens_to_generate=length_params['max_length'],
                 all_probs=sampling_params['all_probs'],
                 temperature=sampling_params['temperature'],
@@ -110,6 +100,40 @@ def megatron_gpt_generate(model, inputs, tokenizer, length_params, sampling_para
                 repetition_penalty=sampling_params['repetition_penalty'],
                 min_tokens_to_generate=length_params['min_length'],
             )
+            for k, v in batch_response.items():
+                if k in response:
+                    response[k] += v
+                else:
+                    response[k] = v
+        compute_prob_response = get_computeprob_response(tokenizer, response, inputs)
+        return compute_prob_response
+
+    if isinstance(inputs, (list, tuple)):
+        if isinstance(inputs[0], (str, torch.Tensor)):
+            output = {}
+            for batch_i in range(num_batches):
+                sl = slice(batch_i * batch_size, (batch_i + 1) * batch_size)
+                batch_inputs = tuple(elem[sl] for elem in inputs) if isinstance(inputs, tuple) else inputs[sl]
+                batch_task_ids = task_ids[sl]
+                batch_output = generate(
+                    model,
+                    inputs=batch_inputs,
+                    task_ids=batch_task_ids,
+                    tokens_to_generate=length_params['max_length'],
+                    all_probs=sampling_params['all_probs'],
+                    temperature=sampling_params['temperature'],
+                    add_BOS=sampling_params['add_BOS'],
+                    top_k=sampling_params['top_k'],
+                    top_p=sampling_params['top_p'],
+                    greedy=sampling_params['use_greedy'],
+                    repetition_penalty=sampling_params['repetition_penalty'],
+                    min_tokens_to_generate=length_params['min_length'],
+                )
+                for k, v in batch_output.items():
+                    if k in output:
+                        output[k] += v
+                    else:
+                        output[k] = v
             return output
         elif isinstance(inputs[0], dict):
             raise NotImplementedError("json object not implemented")

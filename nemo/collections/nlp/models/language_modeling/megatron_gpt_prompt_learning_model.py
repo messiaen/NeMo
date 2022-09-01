@@ -862,6 +862,7 @@ class MegatronGPTPromptLearningModel(MegatronBaseModel, TextGeneration):
         inputs: Union[List[str], torch.Tensor, List[dict]],
         length_params: LengthParam,
         sampling_params: SamplingParam = None,
+        batch_size: int = 128,
     ):
 
         # check whether the DDP is initialized
@@ -908,7 +909,13 @@ class MegatronGPTPromptLearningModel(MegatronBaseModel, TextGeneration):
 
         # Call same generate code as in MegatronGPT
         return megatron_gpt_generate(
-            self.cuda(), processed_inputs, self.tokenizer, length_params, sampling_params, task_ids
+            self.cuda(),
+            processed_inputs,
+            self.tokenizer,
+            length_params,
+            sampling_params,
+            task_ids,
+            batch_size=batch_size,
         )
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: Optional[int] = None) -> Any:
