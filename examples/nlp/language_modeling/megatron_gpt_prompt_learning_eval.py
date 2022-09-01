@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 import torch
 from omegaconf import OmegaConf
 from omegaconf.omegaconf import open_dict
@@ -123,10 +125,17 @@ def main(cfg) -> None:
     datapaths_dict = [{"data_path": path} for path in cfg.data_paths]
 
     # Use for inference on a few examples
-    response = model.generate(inputs=datapaths_dict, length_params=length_params, sampling_params=sampling_params)
+    response = model.generate(
+        inputs=datapaths_dict,
+        length_params=length_params,
+        sampling_params=sampling_params,
+        batch_size=cfg.inference.batch_size,
+    )
 
     print("***************************")
     print(response)
+    with open(cfg.generate_output, 'w') as f:
+        json.dump(response['sentences'], f, indent=2)
     print("***************************")
 
     # Second method of running text generation, call trainer.predict
@@ -135,7 +144,7 @@ def main(cfg) -> None:
 
     _, dataloader = model.build_virtual_prompt_dataset(
         data=cfg.data_paths,
-        batch_size=64,
+        batch_size=cfg.inference.batch_size,
         max_seq_length=max_input_length,
         min_seq_length=model.cfg.data.get('min_seq_length', 1),
         add_bos=sampling_params["add_BOS"],
@@ -152,6 +161,8 @@ def main(cfg) -> None:
 
     print("***************************")
     print(response)
+    with open(cfg.predict_output, 'w') as f:
+        json.dump(response, f, indent=2)
     print("***************************")
 
 

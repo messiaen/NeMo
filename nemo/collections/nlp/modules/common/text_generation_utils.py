@@ -101,10 +101,16 @@ def megatron_gpt_generate(
                 min_tokens_to_generate=length_params['min_length'],
             )
             for k, v in batch_response.items():
-                if k in response:
-                    response[k] += v
+                if k in batch_response:
+                    if isinstance(v, list):
+                        response[k] += v
+                    elif isinstance(v, torch.Tensor):
+                        response[k].append(v)
                 else:
-                    response[k] = v
+                    if isinstance(v, torch.Tensor):
+                        response[k] = [v]
+                    else:
+                        response[k] = v
         compute_prob_response = get_computeprob_response(tokenizer, response, inputs)
         return compute_prob_response
 
@@ -131,9 +137,15 @@ def megatron_gpt_generate(
                 )
                 for k, v in batch_output.items():
                     if k in output:
-                        output[k] += v
+                        if isinstance(v, list):
+                            output[k] += v
+                        elif isinstance(v, torch.Tensor):
+                            output[k].append(v)
                     else:
-                        output[k] = v
+                        if isinstance(v, torch.Tensor):
+                            output[k] = [v]
+                        else:
+                            output[k] = v
             return output
         elif isinstance(inputs[0], dict):
             raise NotImplementedError("json object not implemented")
