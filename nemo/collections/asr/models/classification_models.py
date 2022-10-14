@@ -73,6 +73,7 @@ class _EncDecBaseModel(ASRModel, ExportableEncDecModel):
         self.decoder = self._setup_decoder()
         self.loss = self._setup_loss()
         self._setup_metrics()
+        self.test_dataset = None
 
     @abstractmethod
     def _setup_preprocessor(self):
@@ -256,6 +257,7 @@ class _EncDecBaseModel(ASRModel, ExportableEncDecModel):
                 else:
                     collate_func = dataset.datasets[0].collate_fn
 
+        self.test_dataset = dataset
         return torch.utils.data.DataLoader(
             dataset=dataset,
             batch_size=batch_size,

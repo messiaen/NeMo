@@ -294,7 +294,7 @@ class ClusteringDiarizer(Model, DiarizationMixin):
         """
         if self.has_vad_model:
             self._auto_split = True
-            self._split_duration = 50
+            self._split_duration = 400
             manifest_vad_input = self._diarizer_params.manifest_filepath
 
             if self._auto_split:
