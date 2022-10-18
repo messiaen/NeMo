@@ -161,7 +161,6 @@ def _vad_frame_seq_collate_fn(self, batch):
             assumes the signals are 1d torch tensors (i.e. mono audio).
             batch size equals to 1.
     """
-    print('CALLING _vad_frame_seq_collate_fn')
     slice_length = int(self.featurizer.sample_rate * self.window_length_in_sec)
     _, audio_lengths, _, tokens_lengths = zip(*batch)
     slice_length = min(slice_length, max(audio_lengths))

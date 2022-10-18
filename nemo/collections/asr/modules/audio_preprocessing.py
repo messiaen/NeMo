@@ -686,7 +686,7 @@ class AudioToMelSpectrogramPreprocessorConfig:
     log_zero_guard_type: str = "add"
     log_zero_guard_value: float = 2 ** -24
     dither: float = 1e-5
-    pad_to: int = 0
+    pad_to: int = 16
     frame_splicing: int = 1
     exact_pad: bool = False
     pad_value: int = 0

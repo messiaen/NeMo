@@ -1044,15 +1044,15 @@ def generate_vad_frame_pred(
         data.append(file.split(".wav")[0])
     logging.info(f"Inference on {len(data)} audio files/json lines!")
 
-    slice_length = int(vad_model.test_dataset.featurizer.sample_rate * vad_model.test_dataset.window_length_in_sec)
+    slice_length = int(vad_model.test_dataloader().dataset.featurizer.sample_rate * vad_model.test_dataloader().dataset.window_length_in_sec)
     status = get_vad_stream_status(data)
-    print('DATASET SIZE:', len(vad_model.test_dataset))
+    print('DATASET SIZE:', len(vad_model.test_dataloader().dataset))
     for i, test_batch in enumerate(vad_model.test_dataloader()):
-        slice_length = int(vad_model.test_dataset.featurizer.sample_rate * vad_model.test_dataset.window_length_in_sec)
-        slice_length = min(slice_length, vad_model.test_dataset[i][1].max())
-        shift = int(vad_model.test_dataset.featurizer.sample_rate * vad_model.test_dataset.shift_length_in_sec)
-        fsig = vad_model.test_dataset[i][0]
-        sig_len = vad_model.test_dataset[i][1]
+        slice_length = int(vad_model.test_dataloader().dataset.featurizer.sample_rate * vad_model.test_dataloader().dataset.window_length_in_sec)
+        slice_length = min(slice_length, vad_model.test_dataloader().dataset[i][1].max())
+        shift = int(vad_model.test_dataloader().dataset.featurizer.sample_rate * vad_model.test_dataloader().dataset.shift_length_in_sec)
+        fsig = vad_model.test_dataloader().dataset[i][0]
+        sig_len = vad_model.test_dataloader().dataset[i][1]
 
         test_batch = [x.to(vad_model.device) for x in test_batch]
         #with autocast():
