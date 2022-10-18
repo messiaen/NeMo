@@ -503,8 +503,11 @@ def binarization(sequence: torch.Tensor, per_args: Dict[str, float]) -> torch.Te
         new_seg = torch.tensor([max(0, start - pad_onset), len(sequence) * frame_length_in_sec]).unsqueeze(0)
         speech_segments = torch.cat((speech_segments, new_seg), 0)
 
+    print('BIN SEGS', speech_segments);
+
     # Merge the overlapped speech segments due to padding
     speech_segments = merge_overlap_segment(speech_segments)  # not sorted
+    print('AFTER MERGE SEGS', speech_segments);
     return speech_segments
 
 
@@ -592,6 +595,7 @@ def filtering(speech_segments: torch.Tensor, per_args: Dict[str, float]) -> torc
         if min_duration_on > 0.0:
             speech_segments = filter_short_segments(speech_segments, min_duration_on)
 
+    print('AFTER FILTER SEGS', speech_segments)
     return speech_segments
 
 
@@ -647,6 +651,7 @@ def generate_vad_segment_table_per_file(pred_filepath: str, per_args: dict) -> s
     """
     A wrapper for generate_vad_segment_table_per_tensor
     """
+    print("PRED_FILEPATH", pred_filepath)
     sequence, name = load_tensor_from_file(pred_filepath)
     out_dir, per_args_float = prepare_gen_segment_table(sequence, per_args)
 
@@ -1050,46 +1055,46 @@ def generate_vad_frame_pred(
         sig_len = vad_model.test_dataset[i][1]
 
         test_batch = [x.to(vad_model.device) for x in test_batch]
-        with autocast():
-            print(i, data[i])
-            print('BATCH_SIZE:', test_batch[0].shape)
-            print('BATCH_SIZE:', test_batch[1].shape)
-            feat, feat_len = vad_model.preprocessor(input_signal=fsig.unsqueeze(0).to(vad_model.device), length=sig_len.unsqueeze(0).to(vad_model.device))
-            vad_input, vad_input_len = vad_model.preprocessor(input_signal=test_batch[0], length=test_batch[1])
-            print('FEAT_SIZE:', feat.shape)
-            print('FEAT_SIZE:', feat_len.shape)
-            feat_outpath = os.path.join(out_dir, data[i] + ".unnorm-feat.npy")
-            np.save(feat_outpath, feat.cpu().to(torch.float32).numpy())
+        #with autocast():
+        print(i, data[i])
+        print('BATCH_SIZE:', test_batch[0].shape)
+        print('BATCH_SIZE:', test_batch[1].shape)
+        feat, feat_len = vad_model.preprocessor(input_signal=fsig.unsqueeze(0).to(vad_model.device), length=sig_len.unsqueeze(0).to(vad_model.device))
+        vad_input, vad_input_len = vad_model.preprocessor(input_signal=test_batch[0], length=test_batch[1])
+        print('FEAT_SIZE:', feat.shape)
+        print('FEAT_SIZE:', feat_len.shape)
+        feat_outpath = os.path.join(out_dir, data[i] + ".unnorm-feat.npy")
+        np.save(feat_outpath, feat.cpu().to(torch.float32).numpy())
 
-            #fsig = torch.cat((torch.zeros(slice_length // 2), fsig, torch.zeros(slice_length - slice_length // 2)))
-            #sig_len += slice_length
-            #feat, feat_len = vad_model.preprocessor(input_signal=fsig.unsqueeze(0).to(vad_model.device), length=sig_len.unsqueeze(0).to(vad_model.device))
-            #print('FEAT_SIZE pad:', feat.shape)
-            #print('FEAT_SIZE pad:', feat_len.shape)
-            #feat_outpath = os.path.join(out_dir, data[i] + ".unnorm-feat-pad.npy")
-            #np.save(feat_outpath, feat.to(torch.float).cpu().numpy())
+        #fsig = torch.cat((torch.zeros(slice_length // 2), fsig, torch.zeros(slice_length - slice_length // 2)))
+        #sig_len += slice_length
+        #feat, feat_len = vad_model.preprocessor(input_signal=fsig.unsqueeze(0).to(vad_model.device), length=sig_len.unsqueeze(0).to(vad_model.device))
+        #print('FEAT_SIZE pad:', feat.shape)
+        #print('FEAT_SIZE pad:', feat_len.shape)
+        #feat_outpath = os.path.join(out_dir, data[i] + ".unnorm-feat-pad.npy")
+        #np.save(feat_outpath, feat.to(torch.float).cpu().numpy())
 
-            np.save(os.path.join(out_dir, data[i] + ".vad_input.npy"), vad_input.cpu().to(torch.float32).numpy())
-            log_probs = vad_model(input_signal=test_batch[0], input_signal_length=test_batch[1])
-            np.save(os.path.join(out_dir, data[i] + ".vad_output.npy"), log_probs.cpu().to(torch.float32).numpy())
-            probs = torch.softmax(log_probs, dim=-1)
-            pred = probs[:, 1]
-            print('PRED_SIZE:', pred.shape)
+        np.save(os.path.join(out_dir, data[i] + ".vad_input.npy"), vad_input.cpu().to(torch.float32).numpy())
+        log_probs = vad_model(input_signal=test_batch[0], input_signal_length=test_batch[1])
+        np.save(os.path.join(out_dir, data[i] + ".vad_output.npy"), log_probs.cpu().to(torch.float32).numpy())
+        probs = torch.softmax(log_probs, dim=-1)
+        pred = probs[:, 1]
+        print('PRED_SIZE:', pred.shape)
 
-            if status[i] == 'start':
-                to_save = pred[:-trunc]
-            elif status[i] == 'next':
-                to_save = pred[trunc:-trunc_l]
-            elif status[i] == 'end':
-                to_save = pred[trunc_l:]
-            else:
-                to_save = pred
+        if status[i] == 'start':
+            to_save = pred[:-trunc]
+        elif status[i] == 'next':
+            to_save = pred[trunc:-trunc_l]
+        elif status[i] == 'end':
+            to_save = pred[trunc_l:]
+        else:
+            to_save = pred
 
-            all_len += len(to_save)
-            outpath = os.path.join(out_dir, data[i] + ".frame")
-            with open(outpath, "a", encoding='utf-8') as fout:
-                for f in range(len(to_save)):
-                    fout.write('{0:0.4f}\n'.format(to_save[f]))
+        all_len += len(to_save)
+        outpath = os.path.join(out_dir, data[i] + ".frame")
+        with open(outpath, "a", encoding='utf-8') as fout:
+            for f in range(len(to_save)):
+                fout.write('{0:0.4f}\n'.format(to_save[f]))
 
         del test_batch
         if status[i] == 'end' or status[i] == 'single':
