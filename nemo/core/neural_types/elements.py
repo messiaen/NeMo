@@ -23,6 +23,7 @@ __all__ = [
     'VoidType',
     'ChannelType',
     'AcousticEncodedRepresentation',
+    'BoolType',
     'AudioSignal',
     'SpectrogramType',
     'MelSpectrogramType',

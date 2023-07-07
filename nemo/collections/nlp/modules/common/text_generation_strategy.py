@@ -76,7 +76,19 @@ class TextGenerationStrategy:
         Returns:
             Tuple[torch.Tensor], the tokenized and padded torch tensor and the token context length tensor.
         """
-        tokenizer = self.model.tokenizer
+        return self._tokenize_batch(self.model.tokenizer, sentences, max_len, add_BOS)
+    
+    @classmethod
+    def _tokenize_batch(cls, tokenizer, sentences, max_len, add_BOS):
+        """
+        convert the sentences into lists of tokens, pad them to the same length, add bos tokens if it is needed
+        Args:
+            sentences (List[str]): list of input sentences in str format.
+            max_len (int): max number of tokens to generate.
+            add_BOS (bool): whether to add the BOS token at the beginning
+        Returns:
+            Tuple[torch.Tensor], the tokenized and padded torch tensor and the token context length tensor.
+        """
         if add_BOS:
             context_tokens = [[tokenizer.bos_id] + tokenizer.text_to_ids(s) for s in sentences]
         else:
