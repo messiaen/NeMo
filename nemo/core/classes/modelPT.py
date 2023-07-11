@@ -17,6 +17,7 @@ import copy
 import inspect
 import os
 import uuid
+import importlib
 from abc import abstractmethod
 from os import path
 from pathlib import Path
@@ -381,6 +382,44 @@ class ModelPT(LightningModule, Model):
             self._save_restore_connector.save_to(self, str(save_path))  # downstream tasks expect str, not Path
 
     @classmethod
+    def auto_load(
+        cls,
+        restore_path: str,
+        trainer_args: Dict = {},
+    ):
+        model_cls = cls._get_class_from_config(cls._read_model_config(restore_path))
+        if cls == model_cls:
+            return model_cls.restore_from(restore_path)
+        else:
+            return model_cls.auto_load(restore_path, trainer_args=trainer_args)
+
+
+    @classmethod
+    def _read_model_config(cls, restore_path: str) -> DictConfig:
+        cfg = cls.restore_from(restore_path=restore_path, return_config=True)
+        return cfg
+
+    @classmethod
+    def _get_class_from_config(cls, cfg: DictConfig):
+        classpath: Optional[str] = None
+        if hasattr(cfg, "_target_"):
+            classpath = cfg._target_
+        elif hasattr(cfg, "__target__"):
+            classpath = cfg.__target__
+        elif hasattr(cfg, "target"):
+            classpath = cfg.target
+
+        if classpath is None:
+            raise Exception("Could not resolve model class from config")
+
+        module_name, class_name = classpath.rsplit(".", 1)
+        module = importlib.import_module(module_name)
+        if not hasattr(module, class_name):
+            raise Exception(f"Failed to load class {classpath}")
+        return getattr(module, class_name)
+
+
+    @classmethod
     def restore_from(
         cls,
         restore_path: str,
@@ -427,6 +466,8 @@ class ModelPT(LightningModule, Model):
 
         if not path.exists(restore_path):
             raise FileNotFoundError(f"Can't find {restore_path}")
+        if path.isdir(restore_path):
+            save_restore_connector.model_extracted_dir = restore_path
 
         app_state = AppState()
         app_state.model_restore_path = restore_path

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import itertools
+import os
 import queue
 import warnings
 from functools import partial
@@ -21,8 +22,12 @@ from typing import Any, Dict, Iterator, List, Optional, Union
 import numpy as np
 import torch
 from omegaconf.dictconfig import DictConfig
+from omegaconf import OmegaConf, open_dict
 from pytorch_lightning.accelerators import CPUAccelerator
 from pytorch_lightning.trainer.trainer import Trainer
+from pytorch_lightning.plugins.environments import LightningEnvironment
+from nemo.collections.nlp.parts.nlp_overrides import NLPDDPStrategy, NLPSaveRestoreConnector, SaveRestoreConnector
+from nemo.core.classes import ModelPT
 
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
     MegatronPretrainingRandomSampler,
@@ -1109,6 +1114,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         inputs: Union[List[str], torch.Tensor, List[dict]],
         length_params: LengthParam,
         sampling_params: SamplingParam = None,
+        end_strings: List[str] = [],
     ) -> OutputType:
 
         # check whether the DDP is initialized
@@ -1134,7 +1140,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         if length_params is None:
             length_params = get_default_length_params()
 
-        return megatron_gpt_generate(self.cuda(), inputs, self.tokenizer, length_params, sampling_params)
+        return megatron_gpt_generate(self.cuda(), inputs, self.tokenizer, length_params, sampling_params, end_strings=end_strings)
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: Optional[int] = None) -> Any:
         inference_config = self.get_inference_config()
@@ -1329,3 +1335,39 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             for mod in module.modules():
                 if hasattr(mod, "sequence_parallel"):
                     mod.sequence_parallel = self.last_sequence_parallel
+    
+    @classmethod
+    def auto_load(
+        cls,
+        restore_path: str,
+        trainer_args: Dict = {},
+    ):
+        #cfg = ModelPT.restore_from(restore_path=restore_path, return_config=True)
+        trainer = Trainer(plugins=[LightningEnvironment()], strategy=NLPDDPStrategy(), **trainer_args)
+        save_restore_connector = NLPSaveRestoreConnector()
+        if os.path.isdir(restore_path):
+            save_restore_connector.model_extracted_dir = restore_path
+
+        pretrained_cfg = MegatronGPTModel.restore_from(
+            restore_path=restore_path,
+            trainer=trainer,
+            return_config=True,
+            save_restore_connector=save_restore_connector,
+        )
+        OmegaConf.set_struct(pretrained_cfg, True)
+        with open_dict(pretrained_cfg):
+            pretrained_cfg.sequence_parallel = False
+            pretrained_cfg.activations_checkpoint_granularity = None
+            pretrained_cfg.activations_checkpoint_method = None
+            pretrained_cfg.precision = trainer.precision
+            if trainer.precision == "16":
+                pretrained_cfg.megatron_amp_O2 = False
+        model = MegatronGPTModel.restore_from(
+            restore_path=restore_path,
+            trainer=trainer,
+            override_config_path=pretrained_cfg,
+            save_restore_connector=save_restore_connector,
+            map_location=f'cuda:{trainer.local_rank}',
+        )
+
+        return model

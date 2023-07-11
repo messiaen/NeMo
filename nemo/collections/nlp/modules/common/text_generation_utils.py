@@ -81,7 +81,7 @@ def get_default_length_params():
     return length_params
 
 
-def megatron_gpt_generate(model, inputs, tokenizer, length_params, sampling_params, **strategy_args):
+def megatron_gpt_generate(model, inputs, tokenizer, length_params, sampling_params, end_strings=[], **strategy_args):
     # reproduce the old compute_prob method
     # a very special case
     if sampling_params['compute_logprob']:
@@ -106,6 +106,7 @@ def megatron_gpt_generate(model, inputs, tokenizer, length_params, sampling_para
             repetition_penalty=sampling_params['repetition_penalty'],
             min_tokens_to_generate=length_params['min_length'],
             compute_attention_mask=sampling_params.get("compute_attention_mask", True),
+            end_strings=end_strings,
             **strategy_args,
         )
         compute_prob_response = get_computeprob_response(tokenizer, response, inputs)
