@@ -113,7 +113,7 @@ class TextGeneration:
             add_BOS: bool = False,  # should come form model I think
             all_probs: bool = False,
             compute_logprob: bool = False,
-            stop_words: List[str] = [],
+            end_strings: List[str] = [],
     ) -> OutputType:
         sampling_params: SamplingParam = {
             "use_greedy": False,
@@ -123,7 +123,7 @@ class TextGeneration:
             "repetition_penalty": repetition_penalty,
             "all_probs": all_probs,
             "compute_logprob": compute_logprob,
-            "add_BOS": False,
+            "add_BOS": add_BOS,
         }
         length_params: LengthParam = {
             "min_length": min_tokens_to_generate,
@@ -133,6 +133,7 @@ class TextGeneration:
             prompts,
             length_params,
             sampling_params=sampling_params,
+            end_strings=end_strings,
         )
 
 

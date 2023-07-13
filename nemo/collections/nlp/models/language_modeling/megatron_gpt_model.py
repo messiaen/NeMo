@@ -22,7 +22,7 @@ from typing import Any, Dict, Iterator, List, Optional, Union
 import numpy as np
 import torch
 from omegaconf.dictconfig import DictConfig
-from omegaconf import OmegaConf, open_dict
+from omegaconf import DictConfig, OmegaConf, open_dict
 from pytorch_lightning.accelerators import CPUAccelerator
 from pytorch_lightning.trainer.trainer import Trainer
 from pytorch_lightning.plugins.environments import LightningEnvironment
@@ -1370,4 +1370,40 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             map_location=f'cuda:{trainer.local_rank}',
         )
 
+        return model
+    
+    @classmethod
+    def load_for_inference(cls, config: Union[str, DictConfig]):
+        if isinstance(config, str):
+            cfg = OmegaConf.load(config)
+        else:
+            cfg = config
+        
+        trainer = Trainer(plugins=[LightningEnvironment()], strategy=NLPDDPStrategy(), **cfg.trainer)
+        model_path = cfg.model_path
+        save_restore_connector = NLPSaveRestoreConnector()
+        if os.path.isdir(model_path):
+            save_restore_connector.model_extracted_dir = model_path
+
+        model_cfg = MegatronGPTModel.restore_from(
+            restore_path=model_path,
+            trainer=trainer,
+            return_config=True,
+            save_restore_connector=save_restore_connector,
+        )
+        OmegaConf.set_struct(model_cfg, True)
+        with open_dict(model_cfg):
+            model_cfg.sequence_parallel = False
+            model_cfg.activations_checkpoint_granularity = None
+            model_cfg.activations_checkpoint_method = None
+            model_cfg.precision = trainer.precision
+            if trainer.precision == "16":
+                model_cfg.megatron_amp_O2 = False
+        model = MegatronGPTModel.restore_from(
+            restore_path=model_path,
+            trainer=trainer,
+            override_config_path=model_cfg,
+            save_restore_connector=save_restore_connector,
+            map_location=f'cuda:{trainer.local_rank}',  # map_location is needed for converted models
+        )
         return model

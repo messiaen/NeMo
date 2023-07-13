@@ -127,6 +127,7 @@ def megatron_gpt_generate(model, inputs, tokenizer, length_params, sampling_para
                 greedy=sampling_params['use_greedy'],
                 repetition_penalty=sampling_params['repetition_penalty'],
                 min_tokens_to_generate=length_params['min_length'],
+                end_strings=end_strings,
                 **strategy_args,
             )
             return output

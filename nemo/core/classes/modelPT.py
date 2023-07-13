@@ -382,6 +382,21 @@ class ModelPT(LightningModule, Model):
             self._save_restore_connector.save_to(self, str(save_path))  # downstream tasks expect str, not Path
 
     @classmethod
+    def load_for_inference(
+        cls,
+        cfg: Union[str, DictConfig],
+    ):
+        if isinstance(cfg, str):
+            config = OmegaConf.load(cfg)
+        else:
+            config = cfg
+        model_cls = cls._get_class_from_config(cls._read_model_config(config.model_path))
+        if cls == model_cls:
+            raise NotImplementedError("")
+        else:
+            return model_cls.load_for_inference(cfg)
+        
+    @classmethod
     def auto_load(
         cls,
         restore_path: str,
@@ -402,13 +417,9 @@ class ModelPT(LightningModule, Model):
     @classmethod
     def _get_class_from_config(cls, cfg: DictConfig):
         classpath: Optional[str] = None
-        if hasattr(cfg, "_target_"):
-            classpath = cfg._target_
-        elif hasattr(cfg, "__target__"):
-            classpath = cfg.__target__
-        elif hasattr(cfg, "target"):
-            classpath = cfg.target
-
+        for tgt_name in ("target", "_target_", "__target__"):
+            if hasattr(cfg, tgt_name):
+                classpath = getattr(cfg, tgt_name)
         if classpath is None:
             raise Exception("Could not resolve model class from config")
 
