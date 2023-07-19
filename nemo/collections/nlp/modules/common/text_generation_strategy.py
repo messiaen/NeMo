@@ -77,7 +77,7 @@ class TextGenerationStrategy:
             Tuple[torch.Tensor], the tokenized and padded torch tensor and the token context length tensor.
         """
         return self._tokenize_batch(self.model.tokenizer, sentences, max_len, add_BOS)
-    
+
     @classmethod
     def _tokenize_batch(cls, tokenizer, sentences, max_len, add_BOS):
         """
@@ -339,6 +339,42 @@ class PromptLearningModelTextGenerationStrategy(TextGenerationStrategy):
             pseudo_token_ids_start = self.model.pseudo_token_ids_start
             new_tokens[(new_tokens >= pseudo_token_ids_start)] = tokenizer.unk_id
             tokens[:, :context_length][(tokens[:, :context_length] >= pseudo_token_ids_start)] = tokenizer.unk_id
+
+
+def model_static_inference_strategy_dispatcher(model):
+    from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
+    from nemo.collections.nlp.models.language_modeling.megatron_gpt_prompt_learning_model import (
+        MegatronGPTPromptLearningModel,
+    )
+    from nemo.collections.nlp.models.language_modeling.megatron_retrieval_model import MegatronRetrievalModel
+    from nemo.collections.nlp.modules.common.retro_inference_strategies import (
+        RetroFileQAModelTextGenerationStrategy,
+        RetroModelTextGenerationStrategy,
+        RetroQAModelTextGenerationStrategy,
+    )
+
+    model_cls = model
+    if not isinstance(model_cls, type):
+        model_cls = type(model)
+
+    if issubclass(model_cls, MegatronGPTPromptLearningModel):
+        return PromptLearningModelTextGenerationStrategy
+    elif issubclass(model_cls, MegatronGPTModel):
+        return GPTModelTextGenerationStrategy
+    elif issubclass(model_cls, MegatronRetrievalModel):
+        strategy_name = args['strategy']
+        if strategy_name == 'RetroModelTextGenerationStrategy':
+            return RetroModelTextGenerationStrategy
+        elif strategy_name == 'RetroQAModelTextGenerationStrategy':
+            return RetroQAModelTextGenerationStrategy
+        elif strategy_name == 'RetroFileQAModelTextGenerationStrategy':
+            return RetroFileQAModelTextGenerationStrategy
+        else:
+            raise ValueError(f'{strategy_name} is not supported for inference')
+    else:
+        raise ValueError(f'{model} is not supported for inference')
+
+    # Should call GPTModel or Megatron Retrieval Model's forward method
 
 
 def model_inference_strategy_dispatcher(model, **args):

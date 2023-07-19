@@ -102,18 +102,18 @@ class TextGeneration:
         raise NotImplementedError("please implement this method")
 
     def generate_text(
-            self,
-            prompts: List[str],
-            tokens_to_generate: int = 10,
-            min_tokens_to_generate: int = 1,
-            top_k: int = 1,
-            top_p: float = 1.0,
-            temperature: float = 0.5,
-            repetition_penalty: float = 1.0,
-            add_BOS: bool = False,  # should come form model I think
-            all_probs: bool = False,
-            compute_logprob: bool = False,
-            end_strings: List[str] = [],
+        self,
+        prompts: Union[List[str], Tuple[Tensor, Tensor], List[dict]],
+        tokens_to_generate: int = 10,
+        min_tokens_to_generate: int = 1,
+        top_k: int = 1,
+        top_p: float = 1.0,
+        temperature: float = 0.5,
+        repetition_penalty: float = 1.0,
+        add_BOS: bool = False,  # should come form model I think
+        all_probs: bool = False,
+        compute_logprob: bool = False,
+        end_strings: List[str] = [],
     ) -> OutputType:
         sampling_params: SamplingParam = {
             "use_greedy": False,
@@ -129,13 +129,4 @@ class TextGeneration:
             "min_length": min_tokens_to_generate,
             "max_length": tokens_to_generate,
         }
-        return self.generate(
-            prompts,
-            length_params,
-            sampling_params=sampling_params,
-            end_strings=end_strings,
-        )
-
-
-class TextGenerationPipeline(TextGeneration):
-    pass
+        return self.generate(prompts, length_params, sampling_params=sampling_params, end_strings=end_strings,)

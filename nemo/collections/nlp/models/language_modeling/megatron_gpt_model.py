@@ -19,15 +19,13 @@ import warnings
 from functools import partial
 from typing import Any, Dict, Iterator, List, Optional, Union
 
-import numpy as np
 import torch
-from omegaconf.dictconfig import DictConfig
 from omegaconf import DictConfig, OmegaConf, open_dict
+from omegaconf.dictconfig import DictConfig
 from pytorch_lightning.accelerators import CPUAccelerator
-from pytorch_lightning.trainer.trainer import Trainer
 from pytorch_lightning.plugins.environments import LightningEnvironment
-from nemo.collections.nlp.parts.nlp_overrides import NLPDDPStrategy, NLPSaveRestoreConnector, SaveRestoreConnector
-from nemo.core.classes import ModelPT
+from pytorch_lightning.trainer.trainer import Trainer
+from typing_extensions import override
 
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
     MegatronPretrainingRandomSampler,
@@ -57,9 +55,18 @@ from nemo.collections.nlp.modules.common.transformer.text_generation import (
     SamplingParam,
     TextGeneration,
 )
+from nemo.collections.nlp.parts.nlp_overrides import NLPDDPStrategy, NLPSaveRestoreConnector
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
+from nemo.collections.nlp.pipelines.text_generation_pipeline import (
+    TextGenerationPipeline,
+    TextGenerationStage,
+    TextGenerattionPostProcStage,
+    TextGenerattionPreProcStage,
+    load_tokenizer,
+)
 from nemo.core.classes import Exportable
 from nemo.core.classes.common import PretrainedModelInfo
+from nemo.core.classes.inference_pipeline import InferencePipeline, InferencePipelineFactory, PipelineStageType
 from nemo.core.neural_types import ChannelType, NeuralType
 from nemo.utils import logging
 
@@ -189,7 +196,34 @@ class MegatronGPTExportableModel(torch.nn.Module, Exportable):
         return ['logits']
 
 
-class MegatronGPTModel(MegatronBaseModel, TextGeneration):
+class MegatronGPTTextGenerationInferencePipeline(TextGenerationPipeline):
+    def load_nemo_pipeline(self, parts: Optional[List[Union[str, PipelineStageType]]] = None):
+        cfg = self.inference_config
+        if parts is None:
+            return
+        tokenizer = None
+        if "preprocessor" in parts or "postprocessor" in parts or PipelineStageType.NEMO_PROC in parts:
+            tokenizer_cfg = self.model_config.tokenizer
+            with open_dict(tokenizer_cfg):
+                # TODO pass model_path field name
+                if tokenizer_cfg.model is not None and tokenizer_cfg.model.startswith("nemo:"):
+                    tokenizer_cfg.model = os.path.join(cfg.model_path, tokenizer_cfg.model.split(":", 1)[1])
+                if tokenizer_cfg.vocab_file is not None and tokenizer_cfg.vocab_file.startswith("nemo:"):
+                    tokenizer_cfg.vocab_file = os.path.join(cfg.model_path, tokenizer_cfg.vocab_file.split(":", 1)[1])
+                if tokenizer_cfg.merge_file is not None and tokenizer_cfg.merge_file.startswith("nemo:"):
+                    tokenizer_cfg.merge_file = os.path.join(cfg.model_path, tokenizer_cfg.merge_file.split(":", 1)[1])
+
+            tokenizer = load_tokenizer(tokenizer_cfg)
+        if "preprocessor" in parts or PipelineStageType.NEMO_PROC in parts:
+            self.set_stage_exec("preprocessor", TextGenerattionPreProcStage(tokenizer, MegatronGPTModel))
+        if "postprocessor" in parts or PipelineStageType.NEMO_PROC in parts:
+            self.set_stage_exec("postprocessor", TextGenerattionPostProcStage(tokenizer))
+        if "text_generation" in parts or PipelineStageType.MULTI_STEP_NNET in parts:
+            model = MegatronGPTModel.load_for_inference(self.inference_config)
+            self.set_stage_exec("text_generation", TextGenerationStage(model))
+
+
+class MegatronGPTModel(MegatronBaseModel, TextGeneration, InferencePipelineFactory):
     """
     Megatron GPT pretraining
     """
@@ -1140,7 +1174,9 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         if length_params is None:
             length_params = get_default_length_params()
 
-        return megatron_gpt_generate(self.cuda(), inputs, self.tokenizer, length_params, sampling_params, end_strings=end_strings)
+        return megatron_gpt_generate(
+            self.cuda(), inputs, self.tokenizer, length_params, sampling_params, end_strings=end_strings
+        )
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: Optional[int] = None) -> Any:
         inference_config = self.get_inference_config()
@@ -1335,50 +1371,14 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             for mod in module.modules():
                 if hasattr(mod, "sequence_parallel"):
                     mod.sequence_parallel = self.last_sequence_parallel
-    
-    @classmethod
-    def auto_load(
-        cls,
-        restore_path: str,
-        trainer_args: Dict = {},
-    ):
-        #cfg = ModelPT.restore_from(restore_path=restore_path, return_config=True)
-        trainer = Trainer(plugins=[LightningEnvironment()], strategy=NLPDDPStrategy(), **trainer_args)
-        save_restore_connector = NLPSaveRestoreConnector()
-        if os.path.isdir(restore_path):
-            save_restore_connector.model_extracted_dir = restore_path
 
-        pretrained_cfg = MegatronGPTModel.restore_from(
-            restore_path=restore_path,
-            trainer=trainer,
-            return_config=True,
-            save_restore_connector=save_restore_connector,
-        )
-        OmegaConf.set_struct(pretrained_cfg, True)
-        with open_dict(pretrained_cfg):
-            pretrained_cfg.sequence_parallel = False
-            pretrained_cfg.activations_checkpoint_granularity = None
-            pretrained_cfg.activations_checkpoint_method = None
-            pretrained_cfg.precision = trainer.precision
-            if trainer.precision == "16":
-                pretrained_cfg.megatron_amp_O2 = False
-        model = MegatronGPTModel.restore_from(
-            restore_path=restore_path,
-            trainer=trainer,
-            override_config_path=pretrained_cfg,
-            save_restore_connector=save_restore_connector,
-            map_location=f'cuda:{trainer.local_rank}',
-        )
-
-        return model
-    
     @classmethod
     def load_for_inference(cls, config: Union[str, DictConfig]):
         if isinstance(config, str):
             cfg = OmegaConf.load(config)
         else:
             cfg = config
-        
+
         trainer = Trainer(plugins=[LightningEnvironment()], strategy=NLPDDPStrategy(), **cfg.trainer)
         model_path = cfg.model_path
         save_restore_connector = NLPSaveRestoreConnector()
@@ -1406,4 +1406,28 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             save_restore_connector=save_restore_connector,
             map_location=f'cuda:{trainer.local_rank}',  # map_location is needed for converted models
         )
-        return model
+
+        if parallel_state.is_unitialized():
+
+            def dummy():
+                return
+
+            if trainer.strategy.launcher is not None:
+                trainer.strategy.launcher.launch(dummy, trainer=trainer)
+            trainer.strategy.setup_environment()
+
+            if model.cfg.get('transformer_engine', False):
+                model.setup_transformer_engine_tp_groups()
+            return model
+
+    @override
+    @classmethod
+    def inference_pipeline(
+        cls,
+        task_name: Optional[str] = None,
+        inference_config: Optional[DictConfig] = None,
+        model_config: Optional[DictConfig] = None,
+    ) -> InferencePipeline:
+        if task_name != "text_completion":
+            raise NotImplementedError(f"No pipeline for task {task_name}")
+        return MegatronGPTTextGenerationInferencePipeline(inference_config, model_config)

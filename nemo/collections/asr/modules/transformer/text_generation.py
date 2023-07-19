@@ -102,24 +102,21 @@ class TextGeneration:
         raise NotImplementedError("please implement this method")
 
     def generate_text(
-            self,
-            prompts: List[str],
-            max_length: int = 10,
-            min_length: int = 1,
-            use_greedy: bool = False,
-            temperature: float = 0.5,
-            top_k: int = 1,
-            top_p: float = 1.0,
-            repetition_penalty: float = 1.0,
-            add_BOS: bool = False,
-            all_probs: bool = False,
-            compute_logprob: bool = True,
-            end_strings: List[str] = [],
+        self,
+        prompts: List[str],
+        max_length: int = 10,
+        min_length: int = 1,
+        use_greedy: bool = False,
+        temperature: float = 0.5,
+        top_k: int = 1,
+        top_p: float = 1.0,
+        repetition_penalty: float = 1.0,
+        add_BOS: bool = False,
+        all_probs: bool = False,
+        compute_logprob: bool = True,
+        end_strings: List[str] = [],
     ) -> OutputType:
-        length_param: LengthParam = {
-            "max_length": max_length,
-            "min_length": min_length
-        }
+        length_param: LengthParam = {"max_length": max_length, "min_length": min_length}
 
         sample_param: SamplingParam = {
             "use_greedy": use_greedy,
@@ -129,12 +126,9 @@ class TextGeneration:
             "repetition_penalty": repetition_penalty,
             "add_BOS": add_BOS,
             "all_probs": all_probs,
-            "compute_logprob": compute_logprob
+            "compute_logprob": compute_logprob,
         }
 
         return self.generate(
-            prompts,
-            length_params=length_param,
-            sampling_params=sample_param,
-            end_strings=end_strings,
+            prompts, length_params=length_param, sampling_params=sample_param, end_strings=end_strings,
         )

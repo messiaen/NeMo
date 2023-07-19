@@ -14,10 +14,10 @@
 from __future__ import annotations
 
 import copy
+import importlib
 import inspect
 import os
 import uuid
-import importlib
 from abc import abstractmethod
 from os import path
 from pathlib import Path
@@ -383,8 +383,7 @@ class ModelPT(LightningModule, Model):
 
     @classmethod
     def load_for_inference(
-        cls,
-        cfg: Union[str, DictConfig],
+        cls, cfg: Union[str, DictConfig],
     ):
         if isinstance(cfg, str):
             config = OmegaConf.load(cfg)
@@ -395,19 +394,16 @@ class ModelPT(LightningModule, Model):
             raise NotImplementedError("")
         else:
             return model_cls.load_for_inference(cfg)
-        
+
     @classmethod
     def auto_load(
-        cls,
-        restore_path: str,
-        trainer_args: Dict = {},
+        cls, restore_path: str, trainer_args: Dict = {},
     ):
         model_cls = cls._get_class_from_config(cls._read_model_config(restore_path))
         if cls == model_cls:
             return model_cls.restore_from(restore_path)
         else:
             return model_cls.auto_load(restore_path, trainer_args=trainer_args)
-
 
     @classmethod
     def _read_model_config(cls, restore_path: str) -> DictConfig:
@@ -428,7 +424,6 @@ class ModelPT(LightningModule, Model):
         if not hasattr(module, class_name):
             raise Exception(f"Failed to load class {classpath}")
         return getattr(module, class_name)
-
 
     @classmethod
     def restore_from(

@@ -481,10 +481,63 @@ def generate(
     end_strings=['<|endoftext|>'],
     **strategy_args,
 ) -> OutputType:
+    if 'strategy' in strategy_args:
+        inference_strategy = strategy_args['strategy']
+    else:
+        inference_strategy = model_inference_strategy_dispatcher(model, **strategy_args)
+    tokenizer = model.tokenizer
+    context_tokens_tensor = None
+    context_length_tensor = None
+    if torch.distributed.get_rank() == get_model_parallel_src_rank():
+        if isinstance(inputs, tuple):
+            context_tokens_tensor, context_length_tensor = inputs
+        else:
+            context_tokens_tensor, context_length_tensor = inference_strategy.tokenize_batch(
+                inputs, tokens_to_generate, add_BOS
+            )
+    output = generate_output_ids(
+        model,
+        inference_strategy,
+        (context_tokens_tensor, context_length_tensor),
+        tokens_to_generate,
+        all_probs,
+        temperature,
+        top_k,
+        top_p,
+        greedy,
+        compute_attention_mask,
+        compute_logprob,
+        repetition_penalty,
+        min_tokens_to_generate,
+        end_strings,
+    )
+    if output is not None:
+        decode_tokens, output_logits, full_logits = output
+        return postprocess_output_ids(
+            decode_tokens, output_logits, full_logits, tokenizer, inference_strategy.post_generation_process
+        )
+
+
+def generate_output_ids(
+    model,
+    inference_strategy,
+    inputs,
+    tokens_to_generate=0,
+    all_probs=False,
+    temperature=1.0,
+    top_k=0,
+    top_p=0.0,
+    greedy=False,
+    compute_attention_mask=True,
+    compute_logprob=False,
+    repetition_penalty=1.0,
+    min_tokens_to_generate=0,
+    end_strings=['<|endoftext|>'],
+):
     """
     Args:
         model (NLPModel): text generative model
-        inputs (Union[tuple, List[str]]): if it is a tuple, it is assumed to be (context_tokens_tensor, context_length_tensor). Otherwise it it a list of prompt text strings
+        inputs (context_tokens_tensor, context_length_tensor)
         tokens_to_generate (int): The maximum length of the tokens to be generated.
         all_probs (bool): Return the log prob for all the tokens
         temperature (float): sampling temperature
@@ -505,18 +558,8 @@ def generate(
             token_ids: List[Tensor], output sentence token ids
             offsets: List[List[int]]  # list of tokens start positions in text
     """
-    if 'strategy' in strategy_args:
-        inference_strategy = strategy_args['strategy']
-    else:
-        inference_strategy = model_inference_strategy_dispatcher(model, **strategy_args)
-    tokenizer = model.tokenizer
     if torch.distributed.get_rank() == get_model_parallel_src_rank():
-        if isinstance(inputs, tuple):
-            context_tokens_tensor, context_length_tensor = inputs
-        else:
-            context_tokens_tensor, context_length_tensor = inference_strategy.tokenize_batch(
-                inputs, tokens_to_generate, add_BOS
-            )
+        context_tokens_tensor, context_length_tensor = inputs
 
         send_generate_info(
             context_tokens_tensor,
@@ -565,6 +608,12 @@ def generate(
         min_tokens_to_generate=min_tokens_to_generate,
         end_strings=end_strings,
     )
+    return output
+
+
+def postprocess_output_ids(
+    decode_tokens, output_logits, full_logits, tokenizer, post_generation_process=None
+) -> OutputType:
     special_tokens = set()
     if hasattr(tokenizer, 'pad_token') and tokenizer.pad_token is not None:
         special_tokens.add(tokenizer.pad_token)
@@ -580,54 +629,54 @@ def generate(
         special_tokens.add(tokenizer.sep_token)
     if hasattr(tokenizer, 'mask_token') and tokenizer.mask_token is not None:
         special_tokens.add(tokenizer.mask_token)
-    if output is not None:
-        decode_tokens, output_logits, full_logits = output
-        resp_sentences = []
-        resp_sentences_seg = []
+    # decode_tokens, output_logits, full_logits = output
+    resp_sentences = []
+    resp_sentences_seg = []
 
-        decode_tokens = decode_tokens.cpu().numpy().tolist()
-        for decode_token in decode_tokens:
-            sentence = tokenizer.ids_to_text(decode_token)
-            resp_sentences.append(sentence)
-            if not isinstance(tokenizer, TabularTokenizer):
-                words = []
-                for token in decode_token:
-                    if not isinstance(token, Iterable):
-                        token = [token]
-                    word = tokenizer.ids_to_tokens(token)
-                    if isinstance(word, Iterable):
-                        word = word[0]
-                    if hasattr(tokenizer.tokenizer, 'byte_decoder'):
-                        word = bytearray([tokenizer.tokenizer.byte_decoder[c] for c in word]).decode(
-                            'utf-8', errors='replace'
-                        )
-                    words.append(word)
-                resp_sentences_seg.append(words)
-            else:
-                words = tokenizer.text_to_tokens(sentence)
-                resp_sentences_seg.append(words)
+    decode_tokens = decode_tokens.cpu().numpy().tolist()
+    for decode_token in decode_tokens:
+        sentence = tokenizer.ids_to_text(decode_token)
+        resp_sentences.append(sentence)
+        if not isinstance(tokenizer, TabularTokenizer):
+            words = []
+            for token in decode_token:
+                if not isinstance(token, Iterable):
+                    token = [token]
+                word = tokenizer.ids_to_tokens(token)
+                if isinstance(word, Iterable):
+                    word = word[0]
+                if hasattr(tokenizer.tokenizer, 'byte_decoder'):
+                    word = bytearray([tokenizer.tokenizer.byte_decoder[c] for c in word]).decode(
+                        'utf-8', errors='replace'
+                    )
+                words.append(word)
+            resp_sentences_seg.append(words)
+        else:
+            words = tokenizer.text_to_tokens(sentence)
+            resp_sentences_seg.append(words)
 
-        # offsets calculation
-        all_offsets = []
-        for item in resp_sentences_seg:
-            offsets = [0]
-            for index, token in enumerate(item):
-                if index != len(item) - 1:
-                    if token in special_tokens:
-                        offsets.append(offsets[-1])
-                    else:
-                        offsets.append(len(token) + offsets[-1])
-            all_offsets.append(offsets)
+    # offsets calculation
+    all_offsets = []
+    for item in resp_sentences_seg:
+        offsets = [0]
+        for index, token in enumerate(item):
+            if index != len(item) - 1:
+                if token in special_tokens:
+                    offsets.append(offsets[-1])
+                else:
+                    offsets.append(len(token) + offsets[-1])
+        all_offsets.append(offsets)
 
-        output = {}
-        output['sentences'] = resp_sentences
-        output['tokens'] = resp_sentences_seg
-        output['logprob'] = output_logits
-        output['full_logprob'] = full_logits
-        output['token_ids'] = decode_tokens
-        output['offsets'] = all_offsets
-        output = inference_strategy.post_generation_process(output)
-        return output
+    output = {}
+    output['sentences'] = resp_sentences
+    output['tokens'] = resp_sentences_seg
+    output['logprob'] = output_logits
+    output['full_logprob'] = full_logits
+    output['token_ids'] = decode_tokens
+    output['offsets'] = all_offsets
+    if post_generation_process is not None:
+        output = post_generation_process(output)
+    return output
 
 
 def switch(val1, val2, boolean):
