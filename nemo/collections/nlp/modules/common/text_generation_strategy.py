@@ -16,6 +16,7 @@ import abc
 from typing import List, Tuple
 
 import torch
+from typing_extensions import override
 
 from nemo.collections.nlp.modules.common.lm_utils import pad_batch
 from nemo.collections.nlp.modules.common.megatron.utils import get_ltor_masks_and_position_ids
@@ -136,7 +137,7 @@ class TextGenerationStrategy:
         """
         pass
 
-    @abc.abstractmethod
+    @abc.abstractclassmethod
     def post_process(self, tokens: torch.Tensor, new_tokens: torch.Tensor, context_length: int):
         """
         At the end of the single step inference, post process the inference results
