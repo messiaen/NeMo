@@ -12,7 +12,7 @@ from nemo.collections.nlp.modules.common.text_generation_strategy import (
 )
 from nemo.collections.nlp.modules.common.text_generation_utils import generate_output_ids
 from nemo.collections.nlp.modules.common.tokenizer_utils import get_nmt_tokenizer
-from nemo.core.classes.common import typecheck
+from nemo.core.classes.common import is_typecheck_enabled, typecheck
 from nemo.core.classes.inference_pipeline import (
     InferencePipeline,
     PipelineStage,
@@ -101,13 +101,6 @@ class TextGenerattionPreProcStage:
         self.tokenizer = tokenizer
         self._model_cls = model_cls
         self._tokenize_batch = model_static_inference_strategy_dispatcher(self._model_cls)._tokenize_batch
-
-        self.__cur_batch = None
-        self.__batch_start = {
-            "prompts": [],
-            "tokens_to_generate": 0,
-            "add_BOS": None,
-        }
 
     def __call__(
         self, prompts: List[str], tokens_to_generate: int = 50, add_BOS: bool = False
@@ -367,6 +360,7 @@ def main():
     text_generation_pipe = load_inference_pipeline(infer_cfg_file, task_name="text_completion")
     text_generation_pipe.load_nemo_pipeline(text_generation_pipe.stage_names)
 
+    print("TYPECHECK enabled", is_typecheck_enabled())
     prompts = ["Deep learning is", "Is python a good programming language?"]
     text, output_ids, logits, all_logits = text_generation_pipe.execute(
         prompts=prompts, tokens_to_generate=50, top_k=1, greedy=False, end_strings=["."]

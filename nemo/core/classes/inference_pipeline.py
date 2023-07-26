@@ -66,9 +66,9 @@ class PipelineStage(Typing):
     def set_execute(self, fn: Callable):
         # It would be nice if this could fail if `fn` is not compatible, but as written types are determined dyanmically
         # TODO
-        # self._exec_fn = partial(typecheck(), fn, self)
         self._exec_fn = fn
 
+    @typecheck()
     def execute(self, *args, **kwargs):
         if self._exec_fn is None:
             raise NotImplementedError()
@@ -79,16 +79,6 @@ class PipelineStage(Typing):
 
 
 class InferencePipeline(Typing):
-    # TODO I don't think this is needed in the interface at least
-    #      keep things very simple for now
-    # def __init__(
-    #    self,
-    #    map_location: Optional[torch.device] = None,
-    #    trainer: Optional[Trainer] = None,
-    # ):
-    #    self._map_location = map_location
-    #    self._trainer = trainer
-
     @property
     def task_name(self) -> str:
         raise NotImplementedError()
@@ -113,14 +103,6 @@ class InferencePipeline(Typing):
     def model_config(self) -> DictConfig:
         raise NotImplementedError()
 
-    # @property
-    # def trainer(self):
-    #    return self._trainer
-
-    # @property
-    # def map_location(self):
-    #    return self._map_location
-
     def load_nemo_pipeline(self, parts: Optional[List[Union[str, PipelineStageType]]] = None):
         raise NotImplementedError()
 
@@ -129,6 +111,7 @@ class InferencePipeline(Typing):
             if stage.name == stage_name:
                 stage.set_execute(fn)
 
+    @typecheck()
     def execute(self, *args, **kwargs):
         if len(self.stages) == 0:
             raise NotImplementedError()

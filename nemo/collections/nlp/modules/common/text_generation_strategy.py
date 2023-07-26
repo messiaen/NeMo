@@ -136,8 +136,19 @@ class TextGenerationStrategy:
         """
         pass
 
-    @abc.abstractclassmethod
+    @abc.abstractmethod
     def post_process(self, tokens: torch.Tensor, new_tokens: torch.Tensor, context_length: int):
+        """
+        At the end of the single step inference, post process the inference results
+        Args:
+            tokens  (torch.Tensor): the context tokens
+            new_token (torch.Tensor): sampled new token id
+            context_length (int): the new token position in the tokens
+        """
+        pass
+
+    @classmethod
+    def _post_process(cls, tokens: torch.Tensor, new_tokens: torch.Tensor, context_length: int):
         """
         At the end of the single step inference, post process the inference results
         Args:
